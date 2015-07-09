@@ -284,6 +284,12 @@ def plot_births_from_birth_and_death_records(name, births, deaths_len, drop_befo
 
 def compute_curve(name, year, bnames, dnames):
     try:
+        dnames != None
+        bnames != None
+    except:
+        print('birth and death records not found')
+        Exception()
+    try:
         dnames[name][year]
         bnames[name][year]
     except:
@@ -322,6 +328,13 @@ def plot_mortality_curve(curve):
     series = Series(curve[2:]).astype('int').cumsum() / int(curve[1])
     series.plot(label=curve[0])
 
+def get_mortality_curves_from_file(fname):
+    with open(fname,'r') as f:
+        for line in f:
+            entry = line.split(';')
+            curves[entry[0]] = entry[1:]
+    return curves
+
 def compute_and_plot_all_mortality_curves(name):
     entry = compute_all_curves(name).split(';')
     for curve in entry[1:]:
@@ -354,23 +367,24 @@ def plot_all_mortality_curves_from_file(f, limit=2000, threshold=1000, begin=196
         if count > limit:
             break
 
-def plot_mortality_rate(curve, string = True):
+def get_mortality_rate(curve, normalize=False, string=True, as_series=False):
     if string:
         curve = curve.split(',')
-    if len(curve) < 2:
-        return
+    if len(curve) < 3:
+        return None
     from pandas import Series
-    series = Series(curve[2:]).astype('int') / int(curve[1]) * 1000
-    series.plot(label=curve[0])
+    if normalize:
+        series = Series(curve[2:]).astype('float') / int(curve[1]) * 1000
+    else:
+        series = Series(curve[2:]).astype('float')
+    if as_series:
+        return series
+    return curve[:2] + series.tolist()
 
-def plot_mortality_rate_avg(curve, string = True):
-    if string:
-        curve = curve.split(',')
-    if len(curve) < 2:
-        return
-    from pandas import Series
-    series = Series(curve[2:])
-    series.plot(label=curve[0])
+def plot_mortality_rate(curve, normalize=False, string = True):
+    series = get_mortality_rate(curve, normalize, string, True)
+    if series is not None:
+        series.plot(label=curve[0])
 
 def plot_all_mortality_rates(name, curves, threshold=25):
     entry = curves[name]
@@ -383,13 +397,14 @@ def plot_all_mortality_rates(name, curves, threshold=25):
     plt.ylabel('Rate per 1,000')
     plt.show()
 
-def average_curves(curves, new_label='Average'):
+def average_curves(curves, new_label='Average', normalize=1000):
     total_pop = 0
     entries = []
     for i in range(len(curves)):
         if curves[i].strip() != '':
-            entries.append(curves[i].split(','))
-            total_pop += int(curves[i][1])
+            entry = curves[i].split(',')
+            entries.append(entry)
+            total_pop += int(entry[1])
     average = [new_label, total_pop]
     for age in range(120):
         died = 0
@@ -398,11 +413,190 @@ def average_curves(curves, new_label='Average'):
             if age + 2 < len(curve):
                 pop += int(curve[1])
                 died += int(curve[age+2])
-        if pop > 0:        
+        if pop > 0:
             average.append((died / pop) * 1000)
         else:  
             break
-        print('\rage %d' % age, end='')
+        #print('\rage %d' % age, end='')
     return average
 
+#do not pass averages into this function
+def normalize_to_mortality_rate(curve, string=False):
+    if string:
+        curve = curve.split(',')
+    from pandas import Series
+    series = Series(curve[2:]).astype('int') / int(curve[1]) * 1000
+    result = series.tolist()
+    result.insert(0, curve[1])
+    result.insert(0, curve[0])
+    return result
 
+def score_curve(curve, baseline_curve, mode='add', strings=False, normalize1=False, normalize2=False, scale_score=False):
+    if strings:
+        curve = curve.split(',')
+        baseline_curve = baseline_curve(',')
+    score = ['mscore of ' + curve[0], int(curve[1]) + int(baseline_curve[1])]
+    for i in range(2,122):
+        if i >= len(curve) or i >= len(baseline_curve):
+            break
+        score.append(float(curve[i]) - float(baseline_curve[i]))
+    #print('scored: %(len_c)d, baseline: %(len_bc)d, score: %(len_sc)d' % {"len_c":len(curve), "len_bc":len(baseline_curve), "len_sc":len(score)})
+    if scale_score:
+        import numpy as np
+        scalar_curve = np.arange(10.0, 0., -.125)
+        for i in range(2, len(score)):
+            if i < len(scalar_curve):
+                score[i] = score[i] * scalar_curve[i-2]
+            else:
+                score[i] = 0            
+    score_num = -1
+    if mode == 'add':
+        # PROBLEM: this needs to reflect the fact that if the mortality rate is higher than average
+        #early in life, the overall (numeric) mortality score should be high
+        # the current SOLUTION to this is to only consider the mortality scores below age 80
+        score_num = 0
+        for item in score[2:]:
+            score_num += item
+        score_num /= 10
+    if mode == 'avg':
+        print('avg score not implemented')
+    if mode == 'curve':
+        return score
+    return score_num
+
+def plot_curve_avg_score(name, curves, show_score_curve=False):
+    import matplotlib.pyplot as plt
+    f = open('AVERAGE_MORTALITY_RATE','r')
+    avg = []
+    count = 0
+    for line in f:
+        if count > 1:
+            avg.append(float(line))
+        else:    
+            avg.append(line)
+        count += 1
+    curve = average_curves(curves[name],new_label=name.capitalize())
+    plot_mortality_rate(curve,string=False)
+    plot_mortality_rate(avg,string=False)
+    if show_score_curve:
+        scurve = score_curve(curve, avg, mode='curve', scale_score=True)
+        plot_mortality_rate(scurve,string=False)    
+    plt.title('Mortality rate for ' + name + ' compared to baseline, mscore sum=%.2f'%score_curve(curve,avg,scale_score=True))
+    plt.legend(bbox_to_anchor=(0.,.82,.75,.202), loc=3, ncol=2, mode="expand", borderaxespad=0.)
+    plt.show()
+
+def plot_curve_precomputed_avg_score(name, curves_avg, plot_peak=True):
+    import matplotlib.pyplot as plt
+    f = open('AVERAGE_MORTALITY_RATE','r')
+    avg = []
+    count = 0
+    for line in f:
+        if count > 1:
+            avg.append(float(line))
+        else:    
+            avg.append(line)
+        count += 1
+    curve = curves_avg[name]
+    curve[0] = name.capitalize()
+    plot_mortality_rate(curve,string=False)
+    plot_mortality_rate(avg,string=False)
+    if plot_peak:
+        peak = find_curve_peak(curve,string=False)
+        plt.axvline(peak,color='k',linestyle='--')
+        plt.title('Mortality rate for ' + name.capitalize() + ' compared to baseline, peak = %d'%peak)
+    else:
+        plt.title('Mortality rate for ' + name.capitalize() + ' compared to baseline, mscore sum=%.2f'%score_curve(curve,avg,scale_score=True))    
+    plt.legend(bbox_to_anchor=(0.,.82,.75,.202), loc=3, ncol=2, mode="expand", borderaxespad=0.)    
+    plt.show()
+    
+def get_mort_rate_averages_dictionary(curves):
+    curves_avg = {}
+    count = 0
+    for name in curves.keys():
+        curves_avg[name] = average_curves(curves[name], new_label=name)
+        print('%.2f percent' % (100 * count / len(curves.keys())),end='\r')
+        count += 1
+    return curves_avg
+
+def score_curves_dictionary(curves):
+    f = open('AVERAGE_MORTALITY_RATE','r')
+    avg = []
+    count = 0
+    for line in f:
+        if count > 1:
+            avg.append(float(line))
+        else:    
+            avg.append(line)
+        count += 1
+    count = 0
+    scores = {}
+    for name in curves.keys():
+        scores[name] = score_curve(average_curves(curves[name]), avg, strings=False)
+        count += 1
+        print('\r%d scored' % count, end='')
+    return scores
+
+def score_curves_dictionary_by_decade(curves):
+    curves_by_decade = {'1920':{},'1930':{},'1940':{},'1950':{},'1960':{},'1970':{},'1980':{},'1990':{},'2000':{}}
+    for decade in curves_by_decade.keys():
+        for name in curves.keys():
+            curves_by_decade[decade][name] = []
+            for curve in curves[name]:
+                if curve.strip() != '' and int(curve[:4]) >= int(decade) and int(curve[:4]) < int(decade) + 10:
+                    curves_by_decade[decade][name].append(curve) 
+    scores_by_decade = {}
+    for decade in curves_by_decade.keys():
+        scores_by_decade[decade] = score_curves_dictionary(curves_by_decade[decade])
+    return scores_by_decade
+
+def count_population_curves_dictionary(curves):
+    pop_dic = {}
+    count = 0
+    f = open('AVERAGE_MORTALITY_RATE','r')
+    for name in curves.keys():
+        pop = 0
+        for curve in curves[name]:
+            try:
+                entry = curve.split(',')
+            except:
+                entry = curve
+            for item in entry[2:]:
+                pop += int(item)
+        pop_dic[name] = pop
+    return pop_dic
+
+#TODO: discard? renormalize? all curves that exceed 1.0 fraction of deaths
+def remove_contradictory_curves(curves,print_contradictions=False):
+    curves_new = {}
+    count=0
+    total=0
+    for name in curves.keys():
+        curves_new[name] = []
+        for i in range(len(curves[name])):
+            if curves[name][i].strip() != '':                 
+                entry = curves[name][i].split(',')
+                births = int(entry[1])
+                deaths = 0
+                for died in entry[2:]:
+                    deaths += int(died.strip())
+                if deaths <= births:
+                    curves_new[name].append(curves[name][i])
+                elif print_contradictions:
+                    print('FOUND CONTRADICTION: ' + name + ' ' + curves[name][i] + ' births:' + str(births) + ' deaths:' + str(deaths))
+                    count += 1
+            total += 1
+    print('found %(count)d contradictions of %(total)d total curves, %(percent).2f percent' % {'count':count,'total':total,'percent':(100 * count / total)})
+    return curves_new
+
+def find_curve_peak(curve, string=True):
+    age = 0
+    highest_point = 0.
+    if string:
+        entry = curve.split(',')
+    else:
+        entry = curve
+    for i in range(len(entry)):
+        if i > 1 and float(entry[i]) > highest_point:
+            age = i-2
+            highest_point = float(entry[i])
+    return age
