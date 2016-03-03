@@ -1,6 +1,9 @@
-
+'''
+Datasets came from whatever generous person made this website: http://ssdmf.info/
+'''
 
 def get_dmf(num=1):
+    '''Load the specified subfile of the Death Master File into memory as a list.'''
     dmf = []
     count = 0
     with open('ssdm' + str(num), 'r') as f:
@@ -13,6 +16,7 @@ def get_dmf(num=1):
     return dmf
 
 def make_entry(s):
+    '''Split a raw string entry for a person into a dictionary of attributes.'''
     entry = {}
     if ',' in s:
         s = s.replace(',',' ')
@@ -21,7 +25,7 @@ def make_entry(s):
     entry['lastname'] = s[10:30]
     entry['middlename'] = s[49:64]
     entry['suffix'] = s[30:34]
-    entry['dob'] = s[73:75] + '-' + s[75:77] + '-' + s[77:81] 
+    entry['dob'] = s[73:75] + '-' + s[75:77] + '-' + s[77:81]
     entry['dod'] = s[65:67] + '-' + s[67:69] + '-' + s[69:73]
     entry['age'] = int(s[69:73]) - int(s[77:81])
     if int(s[65:67]) < int(s[73:75]) and int(s[65:67]) != 0 and int(s[73:75]) != 0:
@@ -33,6 +37,7 @@ def make_entry(s):
     return entry
 
 def get_names_table(dmf, names):
+    '''Get a dictionary of entry dictionaries by first name'''
     for s in dmf:
         entry = make_entry(s)
         firstname = entry['firstname'].strip().lower()
@@ -42,6 +47,7 @@ def get_names_table(dmf, names):
     return names
 
 def get_avg_ages(names):
+    '''Compute the average age by first name'''
     THRESHOLD = 0
     avg_age = Series()
     for key in names.keys():
@@ -54,10 +60,15 @@ def get_avg_ages(names):
             avg_age[key] = total / count
     return avg_age
 
-#pass this function a pandas dataframe from reading the .csv created by write_state().
-#this function aggregates into a list where each entry is a name followed by all ages of
-#the deceased person who bore that name.
 def state_dataframe_to_ages_master(state):
+    '''
+    Write a file where each line is a name followed by all ages of
+    the deceased person who bore that name.
+    input:
+        state: a pandas dataframe from reading the .csv created by write_state().
+    output:
+        AGES_MASTER file in current directory
+    '''
     count = 0
     names = {}
     fmaster_r = open('AGES_MASTER', 'r')
@@ -93,17 +104,20 @@ def state_dataframe_to_ages_master(state):
     fmaster_r.close()
     print('wrote %d name entries to AGES_MASTER                     ' % len(names))
 
-#pass this function a pandas dataframe from reading the .csv created by write_state().
-#this function aggregates into a list where each entry is a name followed by a section
-#for each person separated by commas in the format BBBB:DDDD:AAA, corresponding to 
-#birth year, death year, and age. Age will be one to three characters long.
 def state_dataframe_to_birth_death_master(state):
+    '''
+    Write a comma-separated file where each line is a name followed by an entry for each person who bore that name in the format BBBB:DDDD:AAA, corresponding to birth year, death year, and age. Age will be one to three characters long.
+    input:
+        a pandas dataframe from reading the .csv created by write_state().
+    output:
+        the comma-separated file BIRTH_DEATH_MASTER in the current directory
+    '''
     count = 0
     nan_count = 0
     names = {}
     import math
     try:
-        fmaster_r = open('BIRTH_DEATH_MASTER', 'r') 
+        fmaster_r = open('BIRTH_DEATH_MASTER', 'r')
         for item in fmaster_r:
             entry = item.split(',') #first,section, section, ... section
             names[entry[0]] = ','.join(entry[1:]).replace('\n', '')
@@ -111,7 +125,7 @@ def state_dataframe_to_birth_death_master(state):
             if count % 11 == 0:
                 print('loaded %d entries from master file\r' % count, end='')
     except:
-        pass       
+        pass
     fmaster_w = open('BIRTH_DEATH_temp', 'w')
     count = 0
     print('\naggregating', end='')
@@ -133,7 +147,7 @@ def state_dataframe_to_birth_death_master(state):
         if count % 100 == 0:
             print('writing names %.2f percent\r' % float(count * 100 / len(names)), end='')
     fmaster_w.close()
-    try: fmaster_r.close() 
+    try: fmaster_r.close()
     except: pass
     print('copying from temp to master file...                         ')
     fmaster_w = open('BIRTH_DEATH_MASTER', 'w')
@@ -159,8 +173,8 @@ def dmf_to_csv(fname):
     fin.close()
     fout.close()
 
-#writes from an array containing contiguous entries from the DMF (one of the DMF disks) 
-#into a file for that particular state, defined by  the first three SSN digits. Starting in 
+#writes from an array containing contiguous entries from the DMF (one of the DMF disks)
+#into a file for that particular state, defined by  the first three SSN digits. Starting in
 #June 2011 the first three digits are no longer used for this purpose.
 def write_state(state, dmf):
     count = 0
@@ -193,7 +207,7 @@ def write_state(state, dmf):
 #pass this the file created by state_dataframe_to_ages_master()
 def get_avg_age_at_death(fmaster):
     names = {}
-    for item in fmaster:       
+    for item in fmaster:
         total = 0
         count = 0
         entry = item.split(',')
@@ -226,7 +240,7 @@ def get_birth_names():
         year += 1
     return birth_names
 
-#pass this the file output of state_dataframe_to_birth_death_master(); outputs a nested 
+#pass this the file output of state_dataframe_to_birth_death_master(); outputs a nested
 #dictionary to match get_birth_names(). the entry in dic[name][year] is a list of the
 #ages at death for that name-year combination.
 def get_death_names(f):
@@ -255,7 +269,7 @@ def plot_average_age(name, dic):
     y = []
     for year in sorted(names[name].keys()):
         count = 0
-        total = 0        
+        total = 0
         x.append(year)
         for age in names[name][year].split(','):
             count += 1
@@ -283,12 +297,6 @@ def plot_births_from_birth_and_death_records(name, births, deaths_len, drop_befo
     plt.show()
 
 def compute_curve(name, year, bnames, dnames):
-    try:
-        dnames != None
-        bnames != None
-    except:
-        print('birth and death records not found')
-        Exception()
     try:
         dnames[name][year]
         bnames[name][year]
@@ -328,13 +336,6 @@ def plot_mortality_curve(curve):
     series = Series(curve[2:]).astype('int').cumsum() / int(curve[1])
     series.plot(label=curve[0])
 
-def get_mortality_curves_from_file(fname):
-    with open(fname,'r') as f:
-        for line in f:
-            entry = line.split(';')
-            curves[entry[0]] = entry[1:]
-    return curves
-
 def compute_and_plot_all_mortality_curves(name):
     entry = compute_all_curves(name).split(';')
     for curve in entry[1:]:
@@ -367,26 +368,26 @@ def plot_all_mortality_curves_from_file(f, limit=2000, threshold=1000, begin=196
         if count > limit:
             break
 
-def get_mortality_rate(curve, normalize=False, string=True, as_series=False):
+def plot_mortality_rate(curve, string = True):
     if string:
         curve = curve.split(',')
-    if len(curve) < 3:
-        return None
+    if len(curve) < 2:
+        return
     from pandas import Series
-    if normalize:
-        series = Series(curve[2:]).astype('float') / int(curve[1]) * 1000
-    else:
-        series = Series(curve[2:]).astype('float')
-    if as_series:
-        return series
-    return curve[:2] + series.tolist()
+    series = Series(curve[2:]).astype('int') / int(curve[1]) * 1000
+    series.plot(label=curve[0])
 
-def plot_mortality_rate(curve, normalize=False, string = True):
-    series = get_mortality_rate(curve, normalize, string, True)
-    if series is not None:
-        series.plot(label=curve[0])
+def plot_mortality_rate_avg(curve, string = True):
+    if string:
+        curve = curve.split(',')
+    if len(curve) < 2:
+        return
+    from pandas import Series
+    series = Series(curve[2:])
+    series.plot(label=curve[0])
 
 def plot_all_mortality_rates(name, curves, threshold=25):
+    import matplotlib.pyplot as plt
     entry = curves[name]
     for curve in entry[1:]:
         if threshold > 0 and curve.strip() != '' and int(curve[5:curve[5:].find(',') + 5]) < threshold:
@@ -397,14 +398,13 @@ def plot_all_mortality_rates(name, curves, threshold=25):
     plt.ylabel('Rate per 1,000')
     plt.show()
 
-def average_curves(curves, new_label='Average', normalize=1000):
+def average_curves(curves, new_label='Average'):
     total_pop = 0
     entries = []
     for i in range(len(curves)):
         if curves[i].strip() != '':
-            entry = curves[i].split(',')
-            entries.append(entry)
-            total_pop += int(entry[1])
+            entries.append(curves[i].split(','))
+            total_pop += int(curves[i][1])
     average = [new_label, total_pop]
     for age in range(120):
         died = 0
@@ -415,188 +415,14 @@ def average_curves(curves, new_label='Average', normalize=1000):
                 died += int(curve[age+2])
         if pop > 0:
             average.append((died / pop) * 1000)
-        else:  
+        else:
             break
-        #print('\rage %d' % age, end='')
+        print('\rage %d' % age, end='')
     return average
 
-#do not pass averages into this function
-def normalize_to_mortality_rate(curve, string=False):
-    if string:
-        curve = curve.split(',')
-    from pandas import Series
-    series = Series(curve[2:]).astype('int') / int(curve[1]) * 1000
-    result = series.tolist()
-    result.insert(0, curve[1])
-    result.insert(0, curve[0])
-    return result
+def plot_avg_mort(name):
+    plot_mortality_rate_avg(average_curves(curves[name],name.capitalize()),False)
+    plt.title('Average mortality rate for ' + name.capitalize())
+    plt.xlabel('Age')
+    plt.ylabel('Rate per 1,000')
 
-def score_curve(curve, baseline_curve, mode='add', strings=False, normalize1=False, normalize2=False, scale_score=False):
-    if strings:
-        curve = curve.split(',')
-        baseline_curve = baseline_curve(',')
-    score = ['mscore of ' + curve[0], int(curve[1]) + int(baseline_curve[1])]
-    for i in range(2,122):
-        if i >= len(curve) or i >= len(baseline_curve):
-            break
-        score.append(float(curve[i]) - float(baseline_curve[i]))
-    #print('scored: %(len_c)d, baseline: %(len_bc)d, score: %(len_sc)d' % {"len_c":len(curve), "len_bc":len(baseline_curve), "len_sc":len(score)})
-    if scale_score:
-        import numpy as np
-        scalar_curve = np.arange(10.0, 0., -.125)
-        for i in range(2, len(score)):
-            if i < len(scalar_curve):
-                score[i] = score[i] * scalar_curve[i-2]
-            else:
-                score[i] = 0            
-    score_num = -1
-    if mode == 'add':
-        # PROBLEM: this needs to reflect the fact that if the mortality rate is higher than average
-        #early in life, the overall (numeric) mortality score should be high
-        # the current SOLUTION to this is to only consider the mortality scores below age 80
-        score_num = 0
-        for item in score[2:]:
-            score_num += item
-        score_num /= 10
-    if mode == 'avg':
-        print('avg score not implemented')
-    if mode == 'curve':
-        return score
-    return score_num
-
-def plot_curve_avg_score(name, curves, show_score_curve=False):
-    import matplotlib.pyplot as plt
-    f = open('AVERAGE_MORTALITY_RATE','r')
-    avg = []
-    count = 0
-    for line in f:
-        if count > 1:
-            avg.append(float(line))
-        else:    
-            avg.append(line)
-        count += 1
-    curve = average_curves(curves[name],new_label=name.capitalize())
-    plot_mortality_rate(curve,string=False)
-    plot_mortality_rate(avg,string=False)
-    if show_score_curve:
-        scurve = score_curve(curve, avg, mode='curve', scale_score=True)
-        plot_mortality_rate(scurve,string=False)    
-    plt.title('Mortality rate for ' + name + ' compared to baseline, mscore sum=%.2f'%score_curve(curve,avg,scale_score=True))
-    plt.legend(bbox_to_anchor=(0.,.82,.75,.202), loc=3, ncol=2, mode="expand", borderaxespad=0.)
-    plt.show()
-
-def plot_curve_precomputed_avg_score(name, curves_avg, plot_peak=True):
-    import matplotlib.pyplot as plt
-    f = open('AVERAGE_MORTALITY_RATE','r')
-    avg = []
-    count = 0
-    for line in f:
-        if count > 1:
-            avg.append(float(line))
-        else:    
-            avg.append(line)
-        count += 1
-    curve = curves_avg[name]
-    curve[0] = name.capitalize()
-    plot_mortality_rate(curve,string=False)
-    plot_mortality_rate(avg,string=False)
-    if plot_peak:
-        peak = find_curve_peak(curve,string=False)
-        plt.axvline(peak,color='k',linestyle='--')
-        plt.title('Mortality rate for ' + name.capitalize() + ' compared to baseline, peak = %d'%peak)
-    else:
-        plt.title('Mortality rate for ' + name.capitalize() + ' compared to baseline, mscore sum=%.2f'%score_curve(curve,avg,scale_score=True))    
-    plt.legend(bbox_to_anchor=(0.,.82,.75,.202), loc=3, ncol=2, mode="expand", borderaxespad=0.)    
-    plt.show()
-    
-def get_mort_rate_averages_dictionary(curves):
-    curves_avg = {}
-    count = 0
-    for name in curves.keys():
-        curves_avg[name] = average_curves(curves[name], new_label=name)
-        print('%.2f percent' % (100 * count / len(curves.keys())),end='\r')
-        count += 1
-    return curves_avg
-
-def score_curves_dictionary(curves):
-    f = open('AVERAGE_MORTALITY_RATE','r')
-    avg = []
-    count = 0
-    for line in f:
-        if count > 1:
-            avg.append(float(line))
-        else:    
-            avg.append(line)
-        count += 1
-    count = 0
-    scores = {}
-    for name in curves.keys():
-        scores[name] = score_curve(average_curves(curves[name]), avg, strings=False)
-        count += 1
-        print('\r%d scored' % count, end='')
-    return scores
-
-def score_curves_dictionary_by_decade(curves):
-    curves_by_decade = {'1920':{},'1930':{},'1940':{},'1950':{},'1960':{},'1970':{},'1980':{},'1990':{},'2000':{}}
-    for decade in curves_by_decade.keys():
-        for name in curves.keys():
-            curves_by_decade[decade][name] = []
-            for curve in curves[name]:
-                if curve.strip() != '' and int(curve[:4]) >= int(decade) and int(curve[:4]) < int(decade) + 10:
-                    curves_by_decade[decade][name].append(curve) 
-    scores_by_decade = {}
-    for decade in curves_by_decade.keys():
-        scores_by_decade[decade] = score_curves_dictionary(curves_by_decade[decade])
-    return scores_by_decade
-
-def count_population_curves_dictionary(curves):
-    pop_dic = {}
-    count = 0
-    f = open('AVERAGE_MORTALITY_RATE','r')
-    for name in curves.keys():
-        pop = 0
-        for curve in curves[name]:
-            try:
-                entry = curve.split(',')
-            except:
-                entry = curve
-            for item in entry[2:]:
-                pop += int(item)
-        pop_dic[name] = pop
-    return pop_dic
-
-#TODO: discard? renormalize? all curves that exceed 1.0 fraction of deaths
-def remove_contradictory_curves(curves,print_contradictions=False):
-    curves_new = {}
-    count=0
-    total=0
-    for name in curves.keys():
-        curves_new[name] = []
-        for i in range(len(curves[name])):
-            if curves[name][i].strip() != '':                 
-                entry = curves[name][i].split(',')
-                births = int(entry[1])
-                deaths = 0
-                for died in entry[2:]:
-                    deaths += int(died.strip())
-                if deaths <= births:
-                    curves_new[name].append(curves[name][i])
-                elif print_contradictions:
-                    print('FOUND CONTRADICTION: ' + name + ' ' + curves[name][i] + ' births:' + str(births) + ' deaths:' + str(deaths))
-                    count += 1
-            total += 1
-    print('found %(count)d contradictions of %(total)d total curves, %(percent).2f percent' % {'count':count,'total':total,'percent':(100 * count / total)})
-    return curves_new
-
-def find_curve_peak(curve, string=True):
-    age = 0
-    highest_point = 0.
-    if string:
-        entry = curve.split(',')
-    else:
-        entry = curve
-    for i in range(len(entry)):
-        if i > 1 and float(entry[i]) > highest_point:
-            age = i-2
-            highest_point = float(entry[i])
-    return age
