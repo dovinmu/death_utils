@@ -316,19 +316,29 @@ def compute_curve(name, year, bnames, dnames):
     return s
 
 def compute_all_curves(name):
-    s = ''
+    '''
+    Given a first name, plot the set of mortality curves for that name
+    from 1920 to 2011.
+
+    Mortality curve format: yyyy, number born this year, # died at age 0, # died at age 1, ..., # died at oldest age
+    '''
     try:
         bnames[name]
     except:
         return ''
+    s = ''
     for year in range(1920, 2011):
         s += ';' + compute_curve(name, year, bnames, dnames)
     if s.strip(';') == '':
         return ''
     return name + ';' + s + '\n'
 
-#format: yyyy, number born this year, died at age 0, died at age 1, ..., died at oldest age
 def plot_mortality_curve(curve):
+    '''
+    Plot the mortality curve with pandas.
+
+    Mortality curve format: yyyy, number born this year, # died at age 0, # died at age 1, ..., # died at oldest age
+    '''
     curve = curve.split(',')
     if len(curve) < 2:
         return
@@ -336,20 +346,19 @@ def plot_mortality_curve(curve):
     series = Series(curve[2:]).astype('int').cumsum() / int(curve[1])
     series.plot(label=curve[0])
 
-def compute_and_plot_all_mortality_curves(name):
-    entry = compute_all_curves(name).split(';')
-    for curve in entry[1:]:
-        plot_mortality_curve(curve)
-    plt.title('Mortality curves for ' + name.capitalize())
-    plt.xlabel('Age')
-    plt.ylabel('Fraction deceased')
-    plt.show()
+def plot_all_mortality_curves(mortality_curve_set):
+    '''
+    Given a set of mortality curves as returned by compute_all_curves,
+    plot each curve and show the result.
 
-def plot_all_mortality_curves(entry):
-    entry = entry.split(';')
+    Mortality curve format: yyyy, number born this year, # died at age 0, # died at age 1, ..., # died at oldest age
+
+    Set format: name;<mortality curve 1>;<mortality curve 2>;...
+    '''
+    mortality_curve_set = mortality_curve_set.split(';')
     for curve in entry[1:]:
         plot_mortality_curve(curve)
-    plt.title('Mortality curves for ' + entry[0].capitalize())
+    plt.title('Mortality curves for ' + mortality_curve_set[0].capitalize())
     plt.xlabel('Age')
     plt.ylabel('Fraction deceased')
     plt.show()
@@ -425,4 +434,3 @@ def plot_avg_mort(name):
     plt.title('Average mortality rate for ' + name.capitalize())
     plt.xlabel('Age')
     plt.ylabel('Rate per 1,000')
-
