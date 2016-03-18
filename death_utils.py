@@ -2,6 +2,9 @@
 Datasets came from whatever generous person made this website: http://ssdmf.info/
 '''
 
+bnames = None
+dnames = None
+
 def get_dmf(num=1):
     '''Load the specified subfile of the Death Master File into memory as a list.'''
     dmf = []
@@ -226,7 +229,7 @@ def get_birth_names():
     year = 1880
     birth_names = {}
     while year < 2011:
-        f = open('yob' + str(year) + '.txt', 'r')
+        f = open('names/yob' + str(year) + '.txt', 'r')
         for line in f:
             entry = line.split(',')
             name = entry[0].lower()
@@ -296,12 +299,17 @@ def plot_births_from_birth_and_death_records(name, births, deaths_len, drop_befo
     plt.legend(bbox_to_anchor=(0.,.93,1.,.102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
     plt.show()
 
-def compute_curve(name, year, bnames, dnames):
+def compute_curve(name, year):
+    global bnames
+    global dnames
     try:
-        dnames[name][year]
         bnames[name][year]
     except:
-        return ''
+        bnames = get_birth_names()
+    try:
+        dnames[name][year]
+    except:
+        dnames = get_death_names()
     curve = [0] * 120
     for age in dnames[name][year].split(','):
         aad = int(age.strip())
@@ -322,13 +330,14 @@ def compute_all_curves(name):
 
     Mortality curve format: yyyy, number born this year, # died at age 0, # died at age 1, ..., # died at oldest age
     '''
+    global bnames
     try:
         bnames[name]
     except:
-        return ''
+        bnames = get_birth_names()
     s = ''
     for year in range(1920, 2011):
-        s += ';' + compute_curve(name, year, bnames, dnames)
+        s += ';' + compute_curve(name, year)
     if s.strip(';') == '':
         return ''
     return name + ';' + s + '\n'
